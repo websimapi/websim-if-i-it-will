@@ -40,124 +40,76 @@ function setStatus(msg, isError=false){
   status.style.color = isError ? getComputedStyle(document.documentElement).getPropertyValue('--err') : '';
 }
 
-function aiGenerate(a,b){
-  // RPG-focused deterministic outcome generator
-  // normalize inputs already lowercased by caller
+// --- REPLACED: local aiGenerate with AI-backed generator (websim) and fallback --- //
+function localFallbackGenerate(a,b){
+  // original deterministic fallback kept small and clear
   const action = a.toLowerCase();
   const target = b.toLowerCase();
-
-  // rules for common actions and targets
   const recipes = {
-    // chopping
-    chop: {
-      oak: "Oak Log",
-      pine: "Pine Log",
-      birch: "Birch Log",
-      shrub: "Wood Bundle"
-    },
-    // mining
-    mine: {
-      iron: "Iron Ore",
-      copper: "Copper Ore",
-      stone: "Stone Chunk",
-      coal: "Coal Lump"
-    },
-    // harvest / gather
-    harvest: {
-      wheat: "Wheat Sheaf",
-      berry: "Berries",
-      herb: "Herb Bundle",
-      apple: "Apple"
-    },
-    gather: {
-      herb: "Herb Bundle",
-      mushroom: "Mushrooms",
-      fiber: "Cloth Fiber"
-    },
-    // smelt / refine
-    smelt: {
-      "iron ore": "Iron Ingot",
-      "copper ore": "Copper Ingot",
-      ore: "Refined Metal",
-      scrap: "Refined Metal"
-    },
-    refine: {
-      ore: "Refined Metal",
-      oil: "Fuel",
-      herb: "Pure Extract"
-    },
-    cook: {
-      fish: "Cooked Fish",
-      meat: "Cooked Meat",
-      apple: "Baked Apple"
-    },
-    craft: {
-      plank: "Wood Plank",
-      log: "Wood Plank",
-      "iron ingot": "Iron Plate"
-    }
+    chop: { oak: "Oak Log", pine: "Pine Log", birch: "Birch Log", shrub: "Wood Bundle" },
+    mine: { iron: "Iron Ore", copper: "Copper Ore", stone: "Stone Chunk", coal: "Coal Lump" },
+    harvest: { wheat: "Wheat Sheaf", berry: "Berries", herb: "Herb Bundle", apple: "Apple" },
+    gather: { herb: "Herb Bundle", mushroom: "Mushrooms", fiber: "Cloth Fiber" },
+    smelt: { "iron ore": "Iron Ingot", "copper ore": "Copper Ingot", ore: "Refined Metal", scrap: "Refined Metal" },
+    refine: { ore: "Refined Metal", oil: "Fuel", herb: "Pure Extract" },
+    cook: { fish: "Cooked Fish", meat: "Cooked Meat", apple: "Baked Apple" },
+    craft: { plank: "Wood Plank", log: "Wood Plank", "iron ingot": "Iron Plate" }
   };
+  const directMap = { oak: "Oak Log", iron: "Iron Ore", stone: "Stone Chunk", wheat: "Wheat Sheaf", berry: "Berries", fish: "Raw Fish", meat: "Raw Meat", apple: "Apple", coal: "Coal Lump" };
 
-  // direct noun mappings (if user omits an explicit action)
-  const directMap = {
-    oak: "Oak Log",
-    iron: "Iron Ore",
-    stone: "Stone Chunk",
-    wheat: "Wheat Sheaf",
-    berry: "Berries",
-    fish: "Raw Fish",
-    meat: "Raw Meat",
-    apple: "Apple",
-    coal: "Coal Lump"
-  };
-
-  // Try exact action->target match
   if (recipes[action] && (recipes[action][target] || recipes[action][`${target}s`])) {
     const out = recipes[action][target] || recipes[action][`${target}s`];
     return `Result: ${out}`;
   }
-
-  // try action with simple pluralization of target
   if (recipes[action]) {
-    // best-effort: pick first recipe entry as fallback for that action
     const first = Object.values(recipes[action])[0];
     return `Result: ${first} (from ${action} ${target})`;
   }
-
-  // try treating first word as action and rest as phrase (e.g., "chop oak")
-  // fallback: if action unknown but target known
-  if (directMap[target]) {
-    return `Result: ${directMap[target]}`;
-  }
-
-  // if user input combined like "chop oak" in either position, attempt split guess
-  // check if either word matches an action
-  const commonActions = Object.keys(recipes);
-  if (commonActions.includes(target) && directMap[action]) {
-    return `Result: ${directMap[action]}`;
-  }
-
-  // Fallback: produce a plausible RPG-style outcome by simple heuristics
-  // verbs that imply raw resource -> processed
+  if (directMap[target]) return `Result: ${directMap[target]}`;
   const resourceVerbs = ['chop','mine','harvest','gather','smelt','refine','cook','craft'];
   if (resourceVerbs.includes(action)) {
-    // capitalize target as fallback
     const cap = target.split(' ').map(s=>s.charAt(0).toUpperCase()+s.slice(1)).join(' ');
-    // pick wording
-    if (['smelt','refine','craft'].includes(action)) {
-      return `Result: Refined ${cap}`;
-    }
-    if (['cook'].includes(action)) {
-      return `Result: Cooked ${cap}`;
-    }
+    if (['smelt','refine','craft'].includes(action)) return `Result: Refined ${cap}`;
+    if (['cook'].includes(action)) return `Result: Cooked ${cap}`;
     return `Result: ${cap} (raw resource)`;
   }
-
-  // last resort playful reply
   const capA = action.charAt(0).toUpperCase()+action.slice(1);
   const capB = target.charAt(0).toUpperCase()+target.slice(1);
   return `Result: ${capA} ${capB} (an unusual outcome)`;
 }
+
+async function aiGenerate(a,b){
+  // Use websim chat completion to generate a concise RPG-style outcome.
+  // The assistant MUST reply with a single short line beginning with "Result: " and the item name (no extra explanation).
+  try{
+    const prompt = `You are a concise RPG crafting/outcome assistant. Given the player phrase "If I ${a} ${b} it will become?", respond with exactly one line formatted as: Result: <Item Name>
+Do not include any other text, commentary, or code. Use common-sense RPG conversions (e.g., chopping wood => "Oak Log", mining iron => "Iron Ore", cooking meat => "Cooked Meat"). If uncertain, produce a plausible single-item result.`;
+
+    const completion = await websim.chat.completions.create({
+      messages: [
+        { role: "system", content: "You are an RPG assistant that returns a single-line concise crafting/result outcome prefixed with 'Result:'." },
+        { role: "user", content: prompt }
+      ],
+      // keep response small and fast
+      max_tokens: 40,
+      temperature: 0.3
+    });
+
+    const reply = (completion?.content || "").trim();
+    // Basic sanity check: ensure it starts with "Result:"; otherwise fallback
+    if (reply.toLowerCase().startsWith('result:')) return reply;
+    // Sometimes model returns JSON or extra—extract first line that starts with Result:
+    const lines = reply.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+    const found = lines.find(l=>l.toLowerCase().startsWith('result:'));
+    if (found) return found;
+    // fallback to local generator
+    return localFallbackGenerate(a,b);
+  }catch(err){
+    // network or websim error -> fallback
+    return localFallbackGenerate(a,b);
+  }
+}
+// --- end replacement --- //
 
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -190,7 +142,7 @@ form.addEventListener('submit', async (e) => {
   setStatus('Generating response...');
   // Simulate short thinking delay for UX
   await new Promise(r=>setTimeout(r, 600));
-  const reply = aiGenerate(val1, val2);
+  const reply = await aiGenerate(val1, val2);
   responseText.textContent = reply;
   aiSection.hidden = false;
   setStatus('Completed.');
