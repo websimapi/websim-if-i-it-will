@@ -1,10 +1,9 @@
-// Basic single-page app: validate three single-word English words (no spaces) using a public dictionary API,
+// Basic single-page app: validate two single-word English words (no spaces) using a public dictionary API,
 // then generate a friendly AI-style response locally.
 
 const form = document.getElementById('fill-form');
 const w1 = document.getElementById('w1');
 const w2 = document.getElementById('w2');
-const w3 = document.getElementById('w3');
 const status = document.getElementById('status');
 const submitBtn = document.getElementById('submit-btn');
 const clearBtn = document.getElementById('clear-btn');
@@ -41,14 +40,14 @@ function setStatus(msg, isError=false){
   status.style.color = isError ? getComputedStyle(document.documentElement).getPropertyValue('--err') : '';
 }
 
-function aiGenerate(a,b,c){
-  // Simple locally generated "AI" reply using the inputs, with a tiny variation to feel responsive.
+function aiGenerate(a,b){
+  // Generate a short playful response using the two words.
   const templates = [
-    `If you ${a} ${b}, it will ${c}. That sounds like a bold plan — try it!`,
-    `Doing "${a} ${b}" will probably ${c}. Proceed with curiosity.`,
-    `When you ${a} ${b}, expect it to ${c}. Keep an eye on the outcome.`,
-    `Try to ${a} ${b} and see how it ${c}. Small experiments teach a lot.`,
-    `If I ${a} ${b} it will ${c} — short, clear, and full of possibility.`
+    `If you ${a} ${b}, you might be surprised what it becomes — give it a try.`,
+    `"${a} ${b}" could transform things in unexpected ways; experiment and see.`,
+    `Try ${a} ${b} and observe how it becomes something new.`,
+    `When you ${a} ${b}, things often become more interesting.`,
+    `Do ${a} ${b} and notice how it becomes a different story.`
   ];
   const idx = Math.floor(Math.random()*templates.length);
   return templates[idx];
@@ -60,10 +59,9 @@ form.addEventListener('submit', async (e) => {
   aiSection.hidden = true;
   const val1 = normalize(w1.value);
   const val2 = normalize(w2.value);
-  const val3 = normalize(w3.value);
 
-  if (!val1 || !val2 || !val3) {
-    setStatus('Please fill all three words (one word each).', true);
+  if (!val1 || !val2) {
+    setStatus('Please fill both words (one word each).', true);
     return;
   }
 
@@ -71,13 +69,13 @@ form.addEventListener('submit', async (e) => {
   submitBtn.disabled = true;
   clearBtn.disabled = true;
 
-  const checks = await Promise.all([isEnglishWord(val1), isEnglishWord(val2), isEnglishWord(val3)]);
+  const checks = await Promise.all([isEnglishWord(val1), isEnglishWord(val2)]);
   submitBtn.disabled = false;
   clearBtn.disabled = false;
 
   const badIndices = checks.map((ok,i)=>!ok?i:null).filter(x=>x!==null);
   if (badIndices.length){
-    const labels = {0:'first',1:'second',2:'third'};
+    const labels = {0:'first',1:'second'};
     const which = badIndices.map(i=>labels[i]).join(', ');
     setStatus(`Rejected: ${which} word not recognized as a valid English word.`, true);
     return;
@@ -86,14 +84,14 @@ form.addEventListener('submit', async (e) => {
   setStatus('Generating response...');
   // Simulate short thinking delay for UX
   await new Promise(r=>setTimeout(r, 600));
-  const reply = aiGenerate(val1, val2, val3);
+  const reply = aiGenerate(val1, val2);
   responseText.textContent = reply;
   aiSection.hidden = false;
   setStatus('Completed.');
 });
 
 clearBtn.addEventListener('click', ()=>{
-  w1.value = w2.value = w3.value = '';
+  w1.value = w2.value = '';
   setStatus('');
   aiSection.hidden = true;
 });
@@ -105,7 +103,7 @@ tryAgain.addEventListener('click', ()=>{
 });
 
 // small UX: enter moves to next field
-[w1,w2,w3].forEach((el,idx,arr)=>{
+[w1,w2].forEach((el,idx,arr)=>{
   el.addEventListener('keydown', (e)=>{
     if (e.key === 'Enter') {
       e.preventDefault();

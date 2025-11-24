@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>If I ___ ___ it will ___</title>
+  <title>If I ___ ___ it will become?</title>
   <link rel="stylesheet" href="style.css" />
   <script type="importmap">
   {
@@ -14,18 +14,10 @@
 <body>
   <main id="app">
     <form id="fill-form" autocomplete="off" novalidate>
-      <div class="prompt">If I</div>
-      <div class="inputs">
-        <label class="vis">first word
-          <input id="w1" name="w1" inputmode="text" autocapitalize="off" autocomplete="off" maxlength="32" required />
-        </label>
-        <label class="vis">second word
-          <input id="w2" name="w2" inputmode="text" autocapitalize="off" autocomplete="off" maxlength="32" required />
-        </label>
-        <div class="prompt">it will</div>
-        <label class="vis">third word
-          <input id="w3" name="w3" inputmode="text" autocapitalize="off" autocomplete="off" maxlength="32" required />
-        </label>
+      <div class="prompt inline">If I
+        <input id="w1" name="w1" inputmode="text" autocapitalize="off" autocomplete="off" maxlength="32" required />
+        <input id="w2" name="w2" inputmode="text" autocapitalize="off" autocomplete="off" maxlength="32" required />
+        it will become?
       </div>
 
       <div class="row">
