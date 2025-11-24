@@ -41,16 +41,122 @@ function setStatus(msg, isError=false){
 }
 
 function aiGenerate(a,b){
-  // Generate a short playful response using the two words.
-  const templates = [
-    `If you ${a} ${b}, you might be surprised what it becomes — give it a try.`,
-    `"${a} ${b}" could transform things in unexpected ways; experiment and see.`,
-    `Try ${a} ${b} and observe how it becomes something new.`,
-    `When you ${a} ${b}, things often become more interesting.`,
-    `Do ${a} ${b} and notice how it becomes a different story.`
-  ];
-  const idx = Math.floor(Math.random()*templates.length);
-  return templates[idx];
+  // RPG-focused deterministic outcome generator
+  // normalize inputs already lowercased by caller
+  const action = a.toLowerCase();
+  const target = b.toLowerCase();
+
+  // rules for common actions and targets
+  const recipes = {
+    // chopping
+    chop: {
+      oak: "Oak Log",
+      pine: "Pine Log",
+      birch: "Birch Log",
+      shrub: "Wood Bundle"
+    },
+    // mining
+    mine: {
+      iron: "Iron Ore",
+      copper: "Copper Ore",
+      stone: "Stone Chunk",
+      coal: "Coal Lump"
+    },
+    // harvest / gather
+    harvest: {
+      wheat: "Wheat Sheaf",
+      berry: "Berries",
+      herb: "Herb Bundle",
+      apple: "Apple"
+    },
+    gather: {
+      herb: "Herb Bundle",
+      mushroom: "Mushrooms",
+      fiber: "Cloth Fiber"
+    },
+    // smelt / refine
+    smelt: {
+      "iron ore": "Iron Ingot",
+      "copper ore": "Copper Ingot",
+      ore: "Refined Metal",
+      scrap: "Refined Metal"
+    },
+    refine: {
+      ore: "Refined Metal",
+      oil: "Fuel",
+      herb: "Pure Extract"
+    },
+    cook: {
+      fish: "Cooked Fish",
+      meat: "Cooked Meat",
+      apple: "Baked Apple"
+    },
+    craft: {
+      plank: "Wood Plank",
+      log: "Wood Plank",
+      "iron ingot": "Iron Plate"
+    }
+  };
+
+  // direct noun mappings (if user omits an explicit action)
+  const directMap = {
+    oak: "Oak Log",
+    iron: "Iron Ore",
+    stone: "Stone Chunk",
+    wheat: "Wheat Sheaf",
+    berry: "Berries",
+    fish: "Raw Fish",
+    meat: "Raw Meat",
+    apple: "Apple",
+    coal: "Coal Lump"
+  };
+
+  // Try exact action->target match
+  if (recipes[action] && (recipes[action][target] || recipes[action][`${target}s`])) {
+    const out = recipes[action][target] || recipes[action][`${target}s`];
+    return `Result: ${out}`;
+  }
+
+  // try action with simple pluralization of target
+  if (recipes[action]) {
+    // best-effort: pick first recipe entry as fallback for that action
+    const first = Object.values(recipes[action])[0];
+    return `Result: ${first} (from ${action} ${target})`;
+  }
+
+  // try treating first word as action and rest as phrase (e.g., "chop oak")
+  // fallback: if action unknown but target known
+  if (directMap[target]) {
+    return `Result: ${directMap[target]}`;
+  }
+
+  // if user input combined like "chop oak" in either position, attempt split guess
+  // check if either word matches an action
+  const commonActions = Object.keys(recipes);
+  if (commonActions.includes(target) && directMap[action]) {
+    return `Result: ${directMap[action]}`;
+  }
+
+  // Fallback: produce a plausible RPG-style outcome by simple heuristics
+  // verbs that imply raw resource -> processed
+  const resourceVerbs = ['chop','mine','harvest','gather','smelt','refine','cook','craft'];
+  if (resourceVerbs.includes(action)) {
+    // capitalize target as fallback
+    const cap = target.split(' ').map(s=>s.charAt(0).toUpperCase()+s.slice(1)).join(' ');
+    // pick wording
+    if (['smelt','refine','craft'].includes(action)) {
+      return `Result: Refined ${cap}`;
+    }
+    if (['cook'].includes(action)) {
+      return `Result: Cooked ${cap}`;
+    }
+    return `Result: ${cap} (raw resource)`;
+  }
+
+  // last resort playful reply
+  const capA = action.charAt(0).toUpperCase()+action.slice(1);
+  const capB = target.charAt(0).toUpperCase()+target.slice(1);
+  return `Result: ${capA} ${capB} (an unusual outcome)`;
 }
 
 form.addEventListener('submit', async (e) => {
